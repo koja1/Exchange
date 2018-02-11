@@ -517,6 +517,7 @@ class arbitrage():
             'DOT',
             'ATMS'
         ]
+        self.ETHBTC = 0.1
 
     def updateExchanges(self):
         for exchange in self.exchanges:
@@ -530,19 +531,31 @@ class arbitrage():
             highExchage = ''
             for exchange in self.exchanges:
                 if exchange.isSybmolInMarket(coin,"BTC"):
-                    market = exchange.getSymbolMarket(coin,"BTC")
-                    try:
-                        if float(market['ask']) < low:
-                            low = float(market['ask'])
-                            lowExchange = exchange.id
-                        if float(market['bid']) > high:
-                            high = float(market['bid'])
-                            highExchage = exchange.id
-                    except:
-                        pass
+                    low,high = self.updateSymbolAttributes(exchange,coin,low,high)
                     if high/low > 1.01:
                         print(coin + " bid: "  + str(low) + " bidExchange: " + lowExchange
                               + " ask: " + str(high) + " askExchange: " + highExchage + " margin: " + str(high/low))
+
+    def updateSymbolAttributes(self,exchange,coin,low,high):
+        if exchange.isSybmolInMarket(coin,"BTC"):
+            market = exchange.getSymbolMarket(coin,"BTC")
+            try:
+                if low > market['ask']:
+                    low = market['ask']
+                if high < market['bid']:
+                    high = market['bid']
+            except:
+                pass
+        if exchange.isSybmolInMarket(coin,"ETH"):
+            market = exchange.getSymbolMarket(coin,"ETH")
+            try:
+                if low > market['ask']*self.ETHBTC:
+                    low = market['ask']*self.ETHBTC
+                if high < market['bid']*self.ETHBTC:
+                    high = market['bid']*self.ETHBTC
+            except:
+                pass
+        return low, high
 
 arb = arbitrage()
 for i in range(100):
