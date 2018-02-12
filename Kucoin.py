@@ -72,8 +72,8 @@ class kucoin ():
         for market in marketsJson['data']:
             if 'sell' in market and 'buy' in market:
                 self.markets[market['symbol']] = {
-                    'bid': market['buy'],
-                    'ask': market['sell'],}
+                    'bid': float(market['buy']),
+                    'ask': float(market['sell'])}
 
     def getSymbolMarket(self,symbol,base):
         try:

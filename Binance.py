@@ -4,6 +4,7 @@ import re
 from bs4 import BeautifulSoup
 import requests
 import json
+from selenium import webdriver
 
 
 class binance ():
@@ -128,10 +129,10 @@ class binance ():
         marketsJson = json.loads(BeautifulSoup(requests.get("https://api.binance.com/api/v3/ticker/bookTicker").content,"html.parser").prettify())
         for market in marketsJson:
             self.markets[market['symbol']] = {
-                'bid': market['bidPrice'],
-                'bidQty': market['bidQty'],
-                'ask': market['askPrice'],
-                'askQty': market['askQty']}
+                'bid': float(market['bidPrice']),
+                'bidQty': float(market['bidQty']),
+                'ask': float(market['askPrice']),
+                'askQty': float(market['askQty'])}
 
     def getSymbolMarket(self,symbol,base):
         try:
@@ -145,6 +146,26 @@ class binance ():
             return True
         except:
             return False
+
+    def getSellOrders(self,coin,base):
+        url = "https://us.binance.com/trade.html?symbol=" + coin + "_" + base
+        browser = webdriver.Chrome("C:/Users/Inspiron user/Downloads/chromedriver_win32/chromedriver.exe")
+        browser.get(url)
+        html = browser.page_source
+        browser.close()
+        orderList = []
+        tableEntries = BeautifulSoup(html, "html.parser").find('table', attrs={'class': 'table askTable'}).find_all(class_="ng-scope")
+        for entry in tableEntries:
+            try:
+                prices = entry.find(class_="f-left magenta")
+                volume = entry.find(class_="f-right ")
+                try:
+                    orderList.append([float(prices.find('span').find('span').get_text()),float(volume.find('span').get_text())])
+                except:
+                    pass
+            except:
+                pass
+        return orderList
 
         # def describe(self):
         #     return self.deep_extend(super(binance, self).describe(), {

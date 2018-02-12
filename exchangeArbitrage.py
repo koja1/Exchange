@@ -517,33 +517,43 @@ class arbitrage():
             'DOT',
             'ATMS'
         ]
-        self.ETHBTC = 0.1
+        self.ETHBTC = float(json.loads(BeautifulSoup(requests.get("https://api.coinmarketcap.com/v1/ticker/ethereum/").content,"html.parser").prettify())[0]['price_btc'])
+
+    def upDateETHBTC(self):
+        self.ETHBTC = float(json.loads(BeautifulSoup(requests.get("https://api.coinmarketcap.com/v1/ticker/ethereum/").content,"html.parser").prettify())[0]['price_btc'])
 
     def updateExchanges(self):
         for exchange in self.exchanges:
             exchange.updateMarkets()
     def findMargins(self):
         self.updateExchanges()
+        self.upDateETHBTC()
+        coinDict = {}
         for coin in self.coins:
             low = 10000000
             lowExchange = ''
             high = 0
-            highExchage = ''
+            highExchange = ''
             for exchange in self.exchanges:
-                if exchange.isSybmolInMarket(coin,"BTC"):
-                    low,high = self.updateSymbolAttributes(exchange,coin,low,high)
-                    if high/low > 1.01:
-                        print(coin + " bid: "  + str(low) + " bidExchange: " + lowExchange
-                              + " ask: " + str(high) + " askExchange: " + highExchage + " margin: " + str(high/low))
+                low,high,lowExchange,highExchange = self.updateSymbolAttributes(exchange,coin,low,high,lowExchange,highExchange)
+            if high/low > 1.01:
+                coinMargin = {'bid': low,'bidExchange': lowExchange,'ask':high,'askExchange':highExchange,'margin': float(high/low)}
+                if self.validateMargin(coinMargin):
+                    coinDict[coin] = coinMargin
 
-    def updateSymbolAttributes(self,exchange,coin,low,high):
+    def validateMargin(self,margin):
+        pass
+    
+    def updateSymbolAttributes(self,exchange,coin,low,high,lowExchange,highExchange):
         if exchange.isSybmolInMarket(coin,"BTC"):
             market = exchange.getSymbolMarket(coin,"BTC")
             try:
                 if low > market['ask']:
                     low = market['ask']
+                    lowExchange = exchange.id
                 if high < market['bid']:
                     high = market['bid']
+                    highExchange = exchange.id
             except:
                 pass
         if exchange.isSybmolInMarket(coin,"ETH"):
@@ -551,11 +561,13 @@ class arbitrage():
             try:
                 if low > market['ask']*self.ETHBTC:
                     low = market['ask']*self.ETHBTC
+                    lowExchange = exchange.id + "|e"
                 if high < market['bid']*self.ETHBTC:
                     high = market['bid']*self.ETHBTC
+                    highExchange = exchange.id + "|e"
             except:
                 pass
-        return low, high
+        return low, high,lowExchange,highExchange
 
 arb = arbitrage()
 for i in range(100):
