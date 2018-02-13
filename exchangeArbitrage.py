@@ -4,8 +4,10 @@ import re
 from bs4 import BeautifulSoup
 import requests
 import json
+import ccxt
 import Exchange.Binance
 import Exchange.Kucoin
+import Exchange.Cryptopia
 
 
 class arbitrage():
@@ -13,7 +15,8 @@ class arbitrage():
     def __init__(self):
         self.exchanges = [
             Exchange.Binance.binance(),
-            Exchange.Kucoin.kucoin()
+            Exchange.Kucoin.kucoin(),
+            Exchange.Cryptopia.cryptopia()
         ]
         self.coins = [
             'BTC',
@@ -335,7 +338,6 @@ class arbitrage():
             'BOT',
             'MYB',
             'CAN',
-            'BCC',
             'COV',
             'HGT',
             'BBR',
@@ -517,57 +519,117 @@ class arbitrage():
             'DOT',
             'ATMS'
         ]
-        self.ETHBTC = float(json.loads(BeautifulSoup(requests.get("https://api.coinmarketcap.com/v1/ticker/ethereum/").content,"html.parser").prettify())[0]['price_btc'])
-
+        self.tempInvalidCoins = ['BTG','BLZ']
+        for invalidCoin in self.tempInvalidCoins:
+            self.coins.remove(invalidCoin)
+        self.ETHBTC = ccxt.coinmarketcap().fetch_ticker("ETH/USD")['info']['price_btc']
     def upDateETHBTC(self):
-        self.ETHBTC = float(json.loads(BeautifulSoup(requests.get("https://api.coinmarketcap.com/v1/ticker/ethereum/").content,"html.parser").prettify())[0]['price_btc'])
-
+        try:
+            self.ETHBTC = ccxt.coinmarketcap().fetch_ticker("ETH/USD")['info']['price_btc']
+        except:
+            print('ETHBTC did not update')
+            pass
     def updateExchanges(self):
         for exchange in self.exchanges:
             exchange.updateMarkets()
+
     def findMargins(self):
         self.updateExchanges()
         self.upDateETHBTC()
         coinDict = {}
         for coin in self.coins:
             low = 10000000
-            lowExchange = ''
+            lowExchange = ''; askBase = ''; bidBase = ''
             high = 0
             highExchange = ''
             for exchange in self.exchanges:
-                low,high,lowExchange,highExchange = self.updateSymbolAttributes(exchange,coin,low,high,lowExchange,highExchange)
+                low,high,lowExchange,highExchange,bidBase,askBase = self.updateSymbolAttributes(exchange,coin,low,high,lowExchange,highExchange,bidBase,askBase)
             if high/low > 1.01:
-                coinMargin = {'bid': low,'bidExchange': lowExchange,'ask':high,'askExchange':highExchange,'margin': float(high/low)}
-                if self.validateMargin(coinMargin):
-                    coinDict[coin] = coinMargin
+                coinMargin = {'bid': low,'bidExchange': lowExchange,"bidBase":bidBase,'ask':high,'askExchange':highExchange,'askBase':askBase,'margin': float(high/low)}
+                orders = self.calculateProfit(coin,bidBase,askBase,coinMargin)
+                try:
+                    transactionFee = coinMargin['bidExchange'].fees['funding']['withdraw'][coin]*low
+                except:
+                    transactionFee = -1
+                if orders['buys'] != [] and transactionFee != -1:
+                    profit = 0
+                    volume = 0
+                    ethPrice = ''
+                    for i in orders['buys']:
+                        profit += i[2]
+                        volume += i[1]
+                    if profit-transactionFee > 0:
+                        coinDict[coin] = coinMargin
+                        print(coin + " Buy from: " + coinMargin['bidExchange'].id + " for " + bidBase + " | Sell to: " +
+                              coinMargin['askExchange'].id + " for " + askBase)
+                        for i in range(len(orders['buys'])):
+                            if bidBase == "ETH":
+                                ethPrice = " -> " + str(orders['buys'][i][0]/self.ETHBTC)
+                            print("Buy: " + str(orders['buys'][i][1]) + " @" + str(orders['buys'][i][0]) + ethPrice)
+                            if askBase == "ETH":
+                                ethPrice = " -> " + str(orders['sells'][i][0]/self.ETHBTC)
+                            print("Sell: " + str(orders['sells'][i][1]) + " @" + str(orders['sells'][i][0]) + ethPrice)
+                        print('For total volume of ' + str(volume) + " and profit of " + str(profit) + "\n")
+        if coinDict == {}:
+            print("No orders")
 
-    def validateMargin(self,margin):
-        pass
-    
-    def updateSymbolAttributes(self,exchange,coin,low,high,lowExchange,highExchange):
+    def calculateProfit(self,coin,bidBase,askBase,margin):
+        orders = {'buys': [],'sells': []}
+        try:
+            sellOrders = margin['bidExchange'].fetch_order_book(coin + "/" + bidBase)['asks']
+        except:
+            return orders
+        if bidBase == "ETH":
+            for i in range(len(sellOrders)): sellOrders[i][0] *= self.ETHBTC
+        low = margin['bid']; profit = 0
+        try:
+            buyOrders = margin['askExchange'].fetch_order_book(coin + "/" + askBase)['bids']
+        except:
+            return orders
+        if askBase == "ETH":
+            for i in range(len(buyOrders)): buyOrders[i][0] *= self.ETHBTC
+        high = margin['ask']; tradeMargin = margin['margin']
+        while sellOrders != [] and buyOrders != [] and sellOrders[0][0] < low*tradeMargin and buyOrders[0][0] > high*(1-tradeMargin):
+            tradeVol = min(sellOrders[0][1],buyOrders[0][1])
+            fees = tradeVol*(sellOrders[0][0]*margin['bidExchange'].fees['trading']['taker'] + buyOrders[0][0]*margin['askExchange'].fees['trading']['taker'])
+            sellOrders[0][1] -= tradeVol
+            buyOrders[0][1] -= tradeVol
+            profit = tradeVol*(buyOrders[0][0] - sellOrders[0][0]) - fees
+            if profit > 0:
+                orders['buys'].append([sellOrders[0][0], tradeVol*sellOrders[0][0],profit])
+                orders['sells'].append([buyOrders[0][0], tradeVol*buyOrders[0][0],profit])
+            else:
+                break
+            if sellOrders[0][1] == 0:
+                sellOrders = sellOrders[1:]
+            if buyOrders[0][1] == 0:
+                buyOrders = buyOrders[1:]
+        return orders
+
+
+
+    def updateSymbolAttributes(self,exchange,coin,low,high,lowExchange,highExchange,askBase,bidBase):
         if exchange.isSybmolInMarket(coin,"BTC"):
             market = exchange.getSymbolMarket(coin,"BTC")
             try:
-                if low > market['ask']:
-                    low = market['ask']
-                    lowExchange = exchange.id
-                if high < market['bid']:
-                    high = market['bid']
-                    highExchange = exchange.id
+                if low > market['ask'] and exchange.has['withdraw']:
+                    low = market['ask'];lowExchange = exchange;bidBase="BTC"
+                if high < market['bid'] and exchange.has['deposit']:
+                    high = market['bid'];highExchange = exchange;askBase="BTC"
             except:
                 pass
         if exchange.isSybmolInMarket(coin,"ETH"):
             market = exchange.getSymbolMarket(coin,"ETH")
             try:
-                if low > market['ask']*self.ETHBTC:
+                if low > market['ask']*self.ETHBTC and exchange.has['withdraw']:
                     low = market['ask']*self.ETHBTC
-                    lowExchange = exchange.id + "|e"
-                if high < market['bid']*self.ETHBTC:
+                    lowExchange = exchange;bidBase="ETH"
+                if high < market['bid']*self.ETHBTC and exchange.has['deposit']:
                     high = market['bid']*self.ETHBTC
-                    highExchange = exchange.id + "|e"
+                    highExchange = exchange;askBase="ETH"
             except:
                 pass
-        return low, high,lowExchange,highExchange
+        return low, high,lowExchange,highExchange,bidBase,askBase
 
 arb = arbitrage()
 for i in range(100):

@@ -6,84 +6,40 @@ import re
 from bs4 import BeautifulSoup
 import requests
 import json
+import ccxt
 
-
-class kucoin ():
-
+class kucoin (ccxt.kucoin):
 
     def __init__(self):
-        self.id = "kucoin"
-        self.markets = {}
-        self.fee = 0.001
-        self.withdraw = {
-            'KCS': 2.0,
-            'BTC': 0.0005,
-            'USDT': 10.0,
-            'ETH': 0.01,
-            'LTC': 0.001,
-            'NEO': 0.0,
-            'GAS': 0.0,
-            'KNC': 0.5,
-            'BTM': 5.0,
-            'QTUM': 0.1,
-            'EOS': 0.5,
-            'CVC': 3.0,
-            'OMG': 0.1,
-            'PAY': 0.5,
-            'SNT': 20.0,
-            'BHC': 1.0,
-            'HSR': 0.01,
-            'WTC': 0.1,
-            'VEN': 2.0,
-            'MTH': 10.0,
-            'RPX': 1.0,
-            'REQ': 20.0,
-            'EVX': 0.5,
-            'MOD': 0.5,
-            'NEBL': 0.1,
-            'DGB': 0.5,
-            'CAG': 2.0,
-            'CFD': 0.5,
-            'RDN': 0.5,
-            'UKG': 5.0,
-            'BCPT': 5.0,
-            'PPT': 0.1,
-            'BCH': 0.0005,
-            'STX': 2.0,
-            'NULS': 1.0,
-            'GVT': 0.1,
-            'HST': 2.0,
-            'PURA': 0.5,
-            'SUB': 2.0,
-            'QSP': 5.0,
-            'POWR': 1.0,
-            'FLIXX': 10.0,
-            'LEND': 20.0,
-            'AMB': 3.0,
-            'RHOC': 2.0,
-            'R': 2.0,
-            'DENT': 50.0,
-            'DRGN': 1.0,
-            'ACT': 0.1,
-        }
+        super().__init__()
+        self.childMarkets = {}
+        self.fees['trading']['maker'] = 0.0005
+        self.fees['trading']['taker'] = 0.0005
+        self.has['deposit'] = True
 
     def updateMarkets(self):
-        marketsJson = json.loads(BeautifulSoup(requests.get("https://api.kucoin.com/v1/market/open/symbols").content,"html.parser").prettify())
-        for market in marketsJson['data']:
-            if 'sell' in market and 'buy' in market:
-                self.markets[market['symbol']] = {
-                    'bid': float(market['buy']),
-                    'ask': float(market['sell'])}
+        try:
+            marketsJson = self.fetch_tickers()
+        except:
+            self.updateMarkets()
+            time.sleep(5)
+            return 0
+        for market in marketsJson:
+            market = marketsJson[market]['info']
+            if 'buy' in market and 'sell' in market and market['buy'] is not None and market['sell'] is not None:
+                self.childMarkets[market['symbol']] = {
+                        'bid': float(market['buy']),
+                        'ask': float(market['sell'])}
 
     def getSymbolMarket(self,symbol,base):
         try:
-            return self.markets[symbol+ "-" + base]
+            return self.childMarkets[symbol+ "-" + base]
         except:
             return None
 
     def isSybmolInMarket(self,symbol,base):
         try:
-            self.markets[symbol+ "-" + base]
+            self.childMarkets[symbol+ "-" + base]
             return True
         except:
             return False

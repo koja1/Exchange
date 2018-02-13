@@ -5,130 +5,23 @@ from bs4 import BeautifulSoup
 import requests
 import json
 from selenium import webdriver
+import ccxt
 
-
-class binance ():
+class binance (ccxt.binance):
 
     def __init__(self):
-        self.id = "binance"
-        self.markets = {}
-        self.fee = 0.0005
-        self.withdraw = {
-            'BNB': 0.7,
-            'BTC': 0.001,
-            'NEO': 0.0,
-            'ETH': 0.01,
-            'LTC': 0.01,
-            'QTUM': 0.01,
-            'EOS': 1.0,
-            'SNT': 32.0,
-            'BNT': 1.5,
-            'GAS': 0,
-            'BCH': 0.001,
-            'BTM': 5.0,
-            'USDT': 23.0,
-            'HCC': 0.0005,
-            'HSR': 0.0001,
-            'OAX': 8.3,
-            'DNT': 51.0,
-            'MCO': 0.86,
-            'ICN': 3.5,
-            'ZRX': 5.7,
-            'OMG': 0.57,
-            'WTC': 0.5,
-            'LRC': 9.1,
-            'LLT': 54.0,
-            'YOYO': 39.0,
-            'TRX': 129.0,
-            'STRAT': 0.1,
-            'SNGLS': 42,
-            'BQX': 1.6,
-            'KNC': 2.6,
-            'SNM': 29.0,
-            'FUN': 85.0,
-            'LINK': 12.8,
-            'XVG': 0.1,
-            'CTR': 5.4,
-            'SALT': 1.3,
-            'MDA': 4.7,
-            'IOTA': 0.5,
-            'SUB': 7.4,
-            'ETC': 0.01,
-            'MTL': 1.9,
-            'MTH': 34.0,
-            'ENG': 2.1,
-            'AST': 10.0,
-            'DASH': 0.002,
-            'BTG': 0.001,
-            'EVX': 2.5,
-            'REQ': 18.1,
-            'VIB': 28.0,
-            'POWR': 8.6,
-            'ARK': 0.1,
-            'XRP': 0.25,
-            'MOD': 2.0,
-            'ENJ': 42.0,
-            'STORJ': 5.9,
-            'VEN': 1.8,
-            'KMD': 0.002,
-            'RCN': 35.0,
-            'NULS': 2.1,
-            'RDN': 2.2,
-            'XMR': 0.04,
-            'DLT': 11.7,
-            'AMB': 11.4,
-            'BAT': 18.0,
-            'ZEC': 0.005,
-            'BCPT': 10.2,
-            'ARN': 3.1,
-            'GVT': 0.53,
-            'CDT': 67.0,
-            'GXS': 0.3,
-            'POE': 88.0,
-            'QSP': 21.0,
-            'BTS': 1.0,
-            'XZC': 0.02,
-            'LSK': 0.1,
-            'TNT': 47.0,
-            'FUEL': 45.0,
-            'MANA': 74.0,
-            'BCD': 1.0,
-            'DGD': 0.06,
-            'ADX': 4.7,
-            'ADA': 1.0,
-            'PPT': 0.25,
-            'CMT': 37.0,
-            'XLM': 0.01,
-            'CND': 47.0,
-            'LEND': 54.0,
-            'WABI': 3.5,
-            'SBTC': 1.0,
-            'BCX': 1.0,
-            'WAVES': 0.002,
-            'TNB': 82.0,
-            'GTO': 20.0,
-            'ICX': 1.3,
-            'OST': 17.0,
-            'ELF': 6.5,
-            'AION': 1.9,
-            'ETF': 1.0,
-            'BRD': 6.4,
-            'NEBL': 0.01,
-            'VIBE': 7.2,
-            'LUN': 0.29,
-            'RLC': 4.1,
-            'INS': 1.5,
-            'EDO': 2.5,
-            'WINGS': 9.3,
-            'NAV': 0.2,
-            'TRIG': 6.7,
-            'APPC': 6.5,
-        }
+        super().__init__()
+        self.childMarkets = {}
+        self.fees['trading']['maker'] = 0.0005
+        self.fees['trading']['taker'] = 0.0005
+        self.has['deposit'] = True
+
 
     def updateMarkets(self):
-        marketsJson = json.loads(BeautifulSoup(requests.get("https://api.binance.com/api/v3/ticker/bookTicker").content,"html.parser").prettify())
+        marketsJson = self.fetch_tickers()
         for market in marketsJson:
-            self.markets[market['symbol']] = {
+            market = marketsJson[market]['info']
+            self.childMarkets[market['symbol']] = {
                 'bid': float(market['bidPrice']),
                 'bidQty': float(market['bidQty']),
                 'ask': float(market['askPrice']),
@@ -136,36 +29,16 @@ class binance ():
 
     def getSymbolMarket(self,symbol,base):
         try:
-            return self.markets[symbol+base]
+            return self.childMarkets[symbol+base]
         except:
             return None
 
     def isSybmolInMarket(self, symbol, base):
         try:
-            self.markets[symbol + base]
+            self.childMarkets[symbol + base]
             return True
         except:
             return False
-
-    def getSellOrders(self,coin,base):
-        url = "https://us.binance.com/trade.html?symbol=" + coin + "_" + base
-        browser = webdriver.Chrome("C:/Users/Inspiron user/Downloads/chromedriver_win32/chromedriver.exe")
-        browser.get(url)
-        html = browser.page_source
-        browser.close()
-        orderList = []
-        tableEntries = BeautifulSoup(html, "html.parser").find('table', attrs={'class': 'table askTable'}).find_all(class_="ng-scope")
-        for entry in tableEntries:
-            try:
-                prices = entry.find(class_="f-left magenta")
-                volume = entry.find(class_="f-right ")
-                try:
-                    orderList.append([float(prices.find('span').find('span').get_text()),float(volume.find('span').get_text())])
-                except:
-                    pass
-            except:
-                pass
-        return orderList
 
         # def describe(self):
         #     return self.deep_extend(super(binance, self).describe(), {
