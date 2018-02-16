@@ -8,6 +8,7 @@ import ccxt
 import Exchange.Binance
 import Exchange.Kucoin
 import Exchange.Cryptopia
+from Exchange import Bittrex
 
 
 class arbitrage():
@@ -16,7 +17,8 @@ class arbitrage():
         self.exchanges = [
             Exchange.Binance.binance(),
             Exchange.Kucoin.kucoin(),
-            Exchange.Cryptopia.cryptopia()
+            Exchange.Cryptopia.cryptopia(),
+            Exchange.Bittrex.bittrex()
         ]
         self.coins = [
             'BTC',
@@ -511,7 +513,6 @@ class arbitrage():
             'CRED',
             'QWARK',
             'HUSH',
-            'BTM',
             'FLIK',
             'PLAY',
             'ERC',
@@ -519,7 +520,8 @@ class arbitrage():
             'DOT',
             'ATMS'
         ]
-        self.tempInvalidCoins = ['BTG','BLZ']
+        self.tempInvalidCoins = ['BTG','BLZ','UKG']
+        # UKG - kucoin says bittrex address is wrong
         for invalidCoin in self.tempInvalidCoins:
             self.coins.remove(invalidCoin)
         self.ETHBTC = ccxt.coinmarketcap().fetch_ticker("ETH/USD")['info']['price_btc']
@@ -558,7 +560,7 @@ class arbitrage():
                     for i in orders['buys']:
                         profit += i[2]
                         volume += i[1]
-                    if profit-transactionFee > 0:
+                    if profit-transactionFee > 0.0001:
                         coinDict[coin] = coinMargin
                         print(coin + " Buy from: " + coinMargin['bidExchange'].id + " for " + bidBase + " | Sell to: " +
                               coinMargin['askExchange'].id + " for " + askBase)
@@ -632,7 +634,7 @@ class arbitrage():
         return low, high,lowExchange,highExchange,bidBase,askBase
 
 arb = arbitrage()
-for i in range(100):
+while True:
     arb.findMargins()
     time.sleep(10)
     print('\n')
