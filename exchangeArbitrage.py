@@ -8,7 +8,7 @@ import ccxt
 import Exchange.Binance
 import Exchange.Kucoin
 import Exchange.Cryptopia
-from Exchange import Bittrex
+import Exchange.Bittrex
 
 
 class arbitrage():

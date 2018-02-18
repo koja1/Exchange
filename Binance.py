@@ -16,6 +16,17 @@ class binance (ccxt.binance):
         self.fees['trading']['taker'] = 0.0005
         self.has['deposit'] = True
 
+    def loadAllOpenOrders(self,localOrders):
+        orderReturn = self.fetch_open_orders()
+        for order in orderReturn:
+            coin = order['symbol'][:-4]
+            if order['side'] == 'sell':
+                localOrders[coin]['SELL'] = {'id': order['id'], 'price': order['price'], 'amount':order['amount']}
+            elif order['side'] == "buy":
+                localOrders[coin]["BUY"] = {'id': order['id'], 'price': order['price'], 'amount':order['amount']}
+            else:
+                raise ValueError
+        return localOrders
 
     def updateMarkets(self):
         marketsJson = self.fetch_tickers()
