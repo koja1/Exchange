@@ -6,6 +6,7 @@ import requests
 import json
 import Exchange.Binance
 import Exchange.Kucoin
+import ccxt
 
 
 counter = 0
@@ -134,8 +135,11 @@ class marginTrader():
                     if side == "buy" or side == "none":
                         try:
                             self.makeOrder("SELL",coin,base,exchange)
+                        except ccxt.RequestTimeout:
+                            print("Timeout in manageTrades")
                         except:
-                            pass
+                            time.sleep(60)
+                            print("Error in manageTrades")
     def upDateTrades(self,side,coin,base,exchange):
         try:
             orderBook = exchange.fetch_order_book(coin + '/' + base)
@@ -143,14 +147,22 @@ class marginTrader():
             return
         if side == 'buy' or side == "both":
             if orderBook['bids'][2][0] > self.orders[coin]['BUY']['price']:
-                exchange.cancel_order(self.orders[coin]["BUY"]['id'],coin + '/' + base)
-                print("Canceled buy order for: " + coin)
-                self.makeOrder("BUY",coin,base,exchange)
+                try:
+                    exchange.cancel_order(self.orders[coin]["BUY"]['id'],coin + '/' + base)
+                    print("Canceled buy order for: " + coin)
+                    self.makeOrder("BUY",coin,base,exchange)
+                except ccxt.RequestTimeout:
+                    print("Error in upDateTrades: Timeout")
+                    time.sleep(60)
         elif side == 'sell' or side == "both":
             if orderBook['asks'][2][0] < self.orders[coin]['SELL']['price']:
-                exchange.cancel_order(self.orders[coin]["SELL"]['id'],coin + '/' + base)
-                print("Canceled sell order for: " + coin)
-                self.makeOrder("SELL",coin,base,exchange)
+                try:
+                    exchange.cancel_order(self.orders[coin]["SELL"]['id'],coin + '/' + base)
+                    print("Canceled sell order for: " + coin)
+                    self.makeOrder("SELL",coin,base,exchange)
+                except ccxt.RequestTimeout:
+                    print("Error in upDateTrades: Timeout")
+                    time.sleep(60)
 
     def makeOrder(self,side,coin,base,exchange):
         try:
@@ -174,7 +186,7 @@ class marginTrader():
             self.orders[coin][side] = {'id': orderReturn['id'], 'price': orderReturn['price'], 'amount':orderReturn['amount']}
             print('Made sell order for ' + coin + " @" + str(sellPrice))
             return
-        if lowAsk1[0]/highBid1[0] < 1.0045:
+        if lowAsk1[0]/highBid1[0] < 1.004:
             print(coin)
             print("Bid: " + str(highBid1[0]) + "\nAsk: " + str(lowAsk1[0]) + "\nMargin: " + str(lowAsk1[0]/highBid1[0]))
             return
