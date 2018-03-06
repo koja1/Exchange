@@ -15,63 +15,38 @@ class indicatorTrader():
             Exchange.Binance.binance()
         ]
         self.coins = [
-            'NEO',
             'LTC',
             'ARK',
-            'TRX',
-            'ETH',
             'GTO',
-            'VEN',
             'APPC',
             'NANO',
-            'XRP',
             'ZRX',
-            'ICX',
             'BCC',
             'ETC',
-            'ADA',
-            'VIBE',
-            'XVG',
             'NEBL',
             'PPT',
             'HSR',
             'INS',
             'EOS',
             'OMG',
-            'XLM',
             'POE',
-            'RPX',
-            'LSK',
             'WTC',
             'BRD',
             'XMR',
-            'LINK',
             'IOTA',
             'TRIG',
             'ADX',
             'GVT',
-            'CND',
             'QTUM',
-            'GXS',
             'WABI',
-            'AMB',
             'BLZ',
             'WAVES',
             'SALT',
-            'CHAT',
-            'KNC',
             'AION',
             'GAS',
-            'ELF',
             'ZEC',
-            'ENJ',
             'BCD',
-            'DASH',
-            'BCPT',
-            'BTG',
             'DGD',
-            'BTS',
-            'STRAT',
             'ARN',
             'SUB',
             'ENG',
@@ -80,19 +55,15 @@ class indicatorTrader():
             'VIB',
             'BQX',
             'REQ',
-            'FUEL',
             'QSP',
             'OST',
             'MANA',
             'LUN',
-            'STORJ',
             'XZC',
             'NULS',
             'PIVX',
-            'DLT',
-            'SNT',
-            'POWR']
-        self.maxBuy = 0.01
+            'POWR', ]
+        self.maxBuy = 0.002
         self.orders = {}
         self.emas = {}
         self.rsi= {}
@@ -105,8 +76,8 @@ class indicatorTrader():
             # Signal, 0 = do nothing, 1 = buy, 2 = sell
             self.nextTrade[coin] = 0
     def setAPI(self):
-        self.exchanges[0].apiKey = 'Lx1DB2sU8sOO19tx56V248pBn2pLelM6bMNBRiLbTPA1xdYVpHxaqn4DkQGYoU0M'
-        self.exchanges[0].secret = 'tzioDoQ4hFAUvUJpfvU9SB8bwjQlsjE50k579lzIWQgGYvod1TC2YmtqeW5YyZEm'
+        self.exchanges[0].apiKey = ''
+        self.exchanges[0].secret = ''
         self.exchanges[0].updateMarkets()
     def loadIndicatorData(self):
         for coin in self.coins:
@@ -254,8 +225,8 @@ class indicatorTrader():
             if coinBalance*highBid1 < 0.001:
                 return
             sellPrice = lowAsk1*0.9995
-            if coinBalance*highBid1 > self.maxBuy*1.1*2:
-                sellAmount = (self.maxBuy*2/sellPrice)
+            if coinBalance*highBid1 > self.maxBuy*2.2*2:
+                sellAmount = (self.maxBuy*2.2*2/sellPrice)
             else:
                 sellAmount = coinBalance
             orderReturn = exchange.create_limit_sell_order(coin + "/" + base,sellAmount,sellPrice)
@@ -263,12 +234,14 @@ class indicatorTrader():
             self.nextTrade[coin] = 3  # Not allowed new trade within 3 time units
             print('Made sell order for ' + coin + " @" + str(sellPrice))
             print("RSI: " + str(self.rsi[coin]['rsi']))
+            print("Macd: " + str(self.emas[coin]['12'] - self.emas[coin]['26']))
+            print("EMA9: " + str(self.emas[coin]['9']))
         elif self.emas[coin]['signal'] == 1 and self.rsi[coin]['signal'] == 1 and side == "BUY":
             coinBalance = exchange.fetch_free_balance()[coin]
             if exchange.fetch_free_balance()["BTC"] < self.maxBuy*1.01:
                 print("BTC balance too low for coin " + coin)
                 return
-            if coinBalance*highBid1 > 0.05:
+            if coinBalance*highBid1 > 0.03:
                 print("Too much of coin " + coin)
                 return
             buyPrice = highBid1*1.0005
@@ -277,6 +250,8 @@ class indicatorTrader():
             self.nextTrade[coin] = 3  # Not allowed new trade within 3 time units
             print('Made buy order for ' + coin + " @" + str(buyPrice))
             print("RSI: " + str(self.rsi[coin]['rsi']))
+            print("Macd: " + str(self.emas[coin]['12'] - self.emas[coin]['26']))
+            print("EMA9: " + str(self.emas[coin]['9']))
 
 
 
